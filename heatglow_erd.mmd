@@ -1,0 +1,256 @@
+erDiagram
+    auth_user ||--o| user_profile : "has profile"
+    auth_user ||--o{ enquiries : "reviews"
+    auth_user ||--o{ campaigns : "creates/approves"
+    auth_user ||--o{ audit_log : "performs action"
+
+    customers ||--o{ jobs_cache : "has jobs"
+    customers ||--o{ enquiries : "linked to"
+    customers ||--o{ heatshield_members : "subscribes to"
+    customers ||--o{ campaign_events : "receives"
+    customers ||--o{ campaign_attributions : "attributed via"
+    customers ||--o{ automation_queue : "targeted by"
+
+    campaigns ||--o{ campaign_batches : "chunked into"
+    campaigns ||--o{ campaign_events : "generates"
+    campaigns ||--o{ campaign_attributions : "earns revenue"
+    campaigns ||--o{ jobs_cache : "attributed to"
+
+    jobs_cache ||--o{ campaign_attributions : "booked from"
+    campaign_events ||--o| campaign_attributions : "triggered by open"
+
+    auth_user {
+        int id PK
+        string username UK
+        string email UK
+        string password
+        string first_name
+        string last_name
+        bool is_staff
+        bool is_active
+        datetime date_joined
+        datetime last_login
+    }
+
+    user_profile {
+        uuid id PK
+        int user_id FK
+        string role "admin or staff"
+        string phone
+        jsonb notification_prefs
+        datetime created_at
+        datetime updated_at
+    }
+
+    customers {
+        uuid id PK
+        uuid sm8_company_uuid UK
+        string name
+        string email UK
+        string phone
+        string address_line1
+        string address_line2
+        string city
+        string postcode
+        decimal total_spend
+        int job_count
+        date last_job_date
+        string last_job_type
+        array segments "GIN index"
+        bool email_opt_out
+        datetime unsubscribed_at
+        string heatshield_status "active lapsed cancelled none"
+        datetime sm8_synced_at
+        datetime created_at
+        datetime updated_at
+    }
+
+    jobs_cache {
+        uuid id PK
+        uuid sm8_job_uuid UK
+        uuid customer_id FK
+        uuid sm8_company_uuid
+        string status
+        string job_address
+        string job_description
+        string job_type
+        decimal total_invoice_amount
+        decimal materials_cost
+        date created_date
+        date completed_date
+        date quote_date
+        bool active
+        uuid attributed_campaign_id FK
+        datetime sm8_synced_at
+        datetime created_at
+        datetime updated_at
+    }
+
+    enquiries {
+        uuid id PK
+        uuid customer_id FK
+        string customer_name
+        string customer_email
+        string customer_phone
+        string customer_postcode
+        string job_type
+        string description
+        string urgency "emergency urgent routine flexible"
+        date preferred_date
+        int ai_score "0 to 100"
+        string ai_recommendation "APPROVE REJECT MANUAL_REVIEW"
+        string ai_confidence "HIGH MEDIUM LOW"
+        string ai_explanation
+        jsonb ai_flags
+        datetime ai_qualified_at
+        string status "PENDING APPROVED REJECTED etc"
+        int reviewed_by FK
+        datetime reviewed_at
+        string rejection_reason
+        uuid sm8_job_uuid
+        datetime sm8_created_at
+        string source
+        datetime created_at
+        datetime updated_at
+    }
+
+    heatshield_members {
+        uuid id PK
+        uuid customer_id FK
+        string plan_type
+        decimal monthly_amount
+        date start_date
+        date renewal_date
+        string status "active lapsed cancelled pending_renewal"
+        date last_renewed_at
+        bool renewal_reminder_60_sent
+        bool renewal_reminder_30_sent
+        bool renewal_reminder_0_sent
+        uuid last_service_job_uuid
+        string notes
+        datetime created_at
+        datetime updated_at
+    }
+
+    campaigns {
+        uuid id PK
+        string name
+        string description
+        jsonb segment_filters
+        int recipient_count
+        string subject
+        string body_html
+        string from_name
+        string from_email
+        string reply_to
+        string campaign_type "one_off automation_tier2"
+        string automation_trigger
+        string send_mode "immediate scheduled spread"
+        datetime scheduled_for
+        int spread_days
+        string status "draft scheduled sending sent paused failed"
+        int approved_by FK
+        datetime approved_at
+        datetime sent_at
+        int created_by FK
+        int total_sent
+        int total_delivered
+        int total_opened
+        int total_clicked
+        int total_bounced
+        decimal attributed_revenue
+        datetime created_at
+        datetime updated_at
+    }
+
+    campaign_batches {
+        uuid id PK
+        uuid campaign_id FK
+        int batch_number
+        array customer_ids
+        date scheduled_for
+        string status "pending sending sent failed"
+        datetime sent_at
+        int send_count
+        string error_detail
+        datetime created_at
+        datetime updated_at
+    }
+
+    campaign_events {
+        uuid id PK
+        uuid campaign_id FK
+        uuid customer_id FK
+        string event_type "sent delivered opened clicked bounced etc"
+        string resend_email_id
+        string link_url
+        jsonb metadata
+        datetime occurred_at
+        datetime created_at
+        datetime updated_at
+    }
+
+    campaign_attributions {
+        uuid id PK
+        uuid campaign_id FK
+        uuid customer_id FK
+        uuid job_id FK
+        uuid open_event_id FK
+        decimal revenue
+        datetime attributed_at
+        datetime created_at
+        datetime updated_at
+    }
+
+    automation_queue {
+        uuid id PK
+        string automation_type
+        uuid customer_id FK
+        jsonb payload
+        string status "pending processing sent failed skipped"
+        datetime scheduled_for
+        int attempts
+        string last_error
+        datetime sent_at
+        string idempotency_key UK
+        datetime created_at
+        datetime updated_at
+    }
+
+    settings {
+        string key PK
+        jsonb value
+        datetime updated_at
+    }
+
+    suppression_list {
+        uuid id PK
+        string email UK
+        string reason "unsubscribe bounce complaint manual"
+        uuid source_campaign_id
+        datetime suppressed_at
+        datetime created_at
+        datetime updated_at
+    }
+
+    audit_log {
+        uuid id PK
+        int actor_user_id FK
+        string action "e g enquiry.approve"
+        string entity_type
+        uuid entity_id
+        jsonb metadata
+        string ip_address
+        string user_agent
+        datetime created_at
+    }
+
+    sync_log {
+        uuid id PK
+        string sync_type "sm8_full sm8_incremental webhook"
+        string status "running success fail"
+        int records_synced
+        string error_detail
+        datetime started_at
+        datetime finished_at
+    }
